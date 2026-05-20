@@ -1235,6 +1235,17 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
                 agent._client_log_context(),
             )
             return client
+    if agent.provider == "gigachat":
+        from agent.gigachat_adapter import GigaChatOpenAIAdapter
+
+        client = GigaChatOpenAIAdapter(**client_kwargs)
+        _ra().logger.info(
+            "GigaChat client created (%s, shared=%s) %s",
+            reason,
+            shared,
+            agent._client_log_context(),
+        )
+        return client
     # Inject TCP keepalives so the kernel detects dead provider connections
     # instead of letting them sit silently in CLOSE-WAIT (#10324).  Without
     # this, a peer that drops mid-stream leaves the socket in a state where

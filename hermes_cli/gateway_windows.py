@@ -28,6 +28,12 @@ Design notes
 
 from __future__ import annotations
 
+# Windows UTF-8 bootstrap — must be first
+try:
+    import hermes_bootstrap  # noqa: F401
+except ModuleNotFoundError:
+    pass
+
 import os
 import re
 import shlex
@@ -111,6 +117,7 @@ def _exec_schtasks(args: list[str]) -> tuple[int, str, str]:
             capture_output=True,
             text=True,
             timeout=_SCHTASKS_TIMEOUT_S,
+            errors='replace',
             # CREATE_NO_WINDOW avoids a flashing console window when the CLI
             # is itself hosted in a TUI. See tools/browser_tool.py for the
             # same pattern and the windows-subprocess-sigint-storm.md ref.
@@ -290,9 +297,27 @@ def _install_scheduled_task(task_name: str, script_path: Path) -> tuple[bool, st
     if change_code == 0:
         return (True, f"Updated existing Scheduled Task {task_name!r}")
 
-    # Create fresh. Start with the "current user, interactive, no stored
-    # password" variant; if that fails, retry without /RU /NP /IT.
+    # Create fresh with minimal flags — no /RU /NP which require admin rights.
+    # Use /RL HIGHEST so it runs with elevated privileges if user is admin.
     base = [
+        "/Create",
+        "/F",
+        "/SC",
+        "ONLOGON",
+        "/RL",
+        "HIGHEST",
+        "/TN",
+        task_name,
+        "/TR",
+        quoted_script,
+    ]
+
+    code, out, err = _exec_schtasks(base)
+    if code == 0:
+        return (True, f"Created Scheduled Task {task_name!r}")
+
+    # Fallback to LIMITED if HIGHEST fails (non-admin users)
+    base_limited = [
         "/Create",
         "/F",
         "/SC",
@@ -304,20 +329,13 @@ def _install_scheduled_task(task_name: str, script_path: Path) -> tuple[bool, st
         "/TR",
         quoted_script,
     ]
-    user = _resolve_task_user()
-    variants = []
-    if user:
-        variants.append([*base, "/RU", user, "/NP", "/IT"])
-    variants.append(base)
+    code2, out2, err2 = _exec_schtasks(base_limited)
+    if code2 == 0:
+        return (True, f"Created Scheduled Task {task_name!r} (LIMITED)")
 
-    last_code = 1
-    last_err = ""
-    for argv in variants:
-        code, out, err = _exec_schtasks(argv)
-        if code == 0:
-            return (True, f"Created Scheduled Task {task_name!r}")
-        last_code, last_err = code, (err or out or "")
-    return (False, f"schtasks /Create failed (code {last_code}): {last_err.strip()}")
+    # Both schtasks attempts failed — return failure so caller can fall back
+    # to Startup folder. Don't include error text to avoid encoding issues.
+    return (False, f"schtasks /Create failed (access denied or insufficient privileges)")
 
 
 def _install_startup_entry(script_path: Path) -> Path:
@@ -494,8 +512,21 @@ def install(force: bool = False) -> None:
         _print_next_steps()
         return
 
-    # Unknown schtasks error — surface it and bail.
-    raise RuntimeError(f"Windows gateway install failed: {detail}")
+    # Unknown schtasks error — this is usually "Access Denied" when not running
+    # as Administrator. Provide clear guidance.
+    print()
+    print("✗ schtasks /Create failed — this usually means VS Code is not running as Administrator.")
+    print()
+    print("To install the gateway as a Scheduled Task:")
+    print("  1. Close VS Code")
+    print("  2. Right-click VS Code icon → 'Run as Administrator'")
+    print("  3. Run: hermes gateway install")
+    print()
+    print("Alternatively, use the Startup folder fallback (gateway starts on login):")
+    print("  Run: hermes gateway install --startup-fallback")
+    print()
+    # Don't raise — let the user decide what to do next
+    return
 
 
 def _wait_for_gateway_ready(timeout_s: float = 6.0, interval_s: float = 0.4) -> list[int]:

@@ -464,6 +464,12 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
         "deepseek/deepseek-r1-0528",
         "qwen/qwen3-235b-a22b-fp8",
     ],
+    "gigachat": [
+        "GigaChat",
+        "GigaChat-Pro",
+        "GigaChat-Max",
+        "GigaChat-Plus",
+    ],
 }
 
 # Vercel AI Gateway: derive the bare-model-id catalog from the curated
@@ -1022,6 +1028,10 @@ _PROVIDER_ALIASES = {
     "aigateway": "ai-gateway",
     "vercel": "ai-gateway",
     "vercel-ai-gateway": "ai-gateway",
+    "gigachat": "gigachat",
+    "giga": "gigachat",
+    "sber": "gigachat",
+    "sberbank": "gigachat",
     "kilo": "kilocode",
     "kilo-code": "kilocode",
     "kilo-gateway": "kilocode",

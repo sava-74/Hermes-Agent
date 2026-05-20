@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(.venv\\scripts\\activate)",
+      "Bash(uv *)",
+      "Bash(rm *)",
+      "Bash(remove-item *)",
+      "Bash(set *)",
+      "Bash(findstr *)",
+      "Bash(pip install *)"
+    ]
+  },
+  "$version": 4
+}

@@ -109,6 +109,7 @@ from hermes_cli.browser_connect import (
     try_launch_chrome_debug,
 )
 from hermes_cli.env_loader import load_hermes_dotenv
+from hermes_cli.translations import t, get_language, is_russian
 from utils import base_url_host_matches, is_truthy_value
 
 _hermes_home = get_hermes_home()
